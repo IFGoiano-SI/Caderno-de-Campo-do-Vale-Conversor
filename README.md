@@ -11,7 +11,14 @@ A aplicação permite que o usuário digite um valor numérico, selecione a unid
 - Sacas
 - Arrobas
 
-O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Além disso, o sistema conta com validação de entrada, impedindo o processamento de caracteres inválidos e exibindo mensagens de alerta diretamente no campo de texto caso o usuário insira dados inconsistentes.
+O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: ambos os campos atuam simultaneamente como origem e destino, atualizando-se mutuamente em tempo real (via `onChanged` e `setState`). 
+
+Além disso, o sistema conta com um botão de limpeza rápida de estado e validação rigorosa de entrada, impedindo o processamento de caracteres inválidos e exibindo mensagens de alerta diretamente no escopo visual do campo afetado.
+
+### Fatores de Conversão Utilizados:
+A arquitetura da interface separa as grandezas em abas ("Área" e "Massa") para evitar cruzamento de dados incompatíveis. Os fatores matemáticos aplicados no código são:
+- **Área:** 1 Alqueire Goiano = 4,84 Hectares
+- **Massa:** 1 Saca = 4 Arrobas
 
 ---
 
