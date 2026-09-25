@@ -6,19 +6,25 @@ O **Conversor de Unidades da Roça** é uma funcionalidade integrada ao aplicati
 
 ### O que o app faz:
 A aplicação permite que o usuário digite um valor numérico, selecione a unidade de origem e defina a unidade de destino. As conversões suportadas englobam:
-- Hectares
-- Alqueires goianos
-- Sacas
-- Arrobas
+- **Área:** Hectares, Alqueires goianos, Acres e Metros quadrados.
+- **Massa:** Sacas, Arrobas, Quilogramas e Toneladas.
 
-O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: ambos os campos atuam simultaneamente como origem e destino, atualizando-se mutuamente em tempo real (via `onChanged` e `setState`). 
+O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: ambos os campos atuam simultaneamente como origem e destino, atualizando-se mutuamente em tempo real (via `onChanged` e `setState`). Inspirada nas melhores práticas de design (como o aplicativo de conversão da Samsung), a navegação conta com recursos avançados como a transição ágil de abas por gestos (`PageView` com swipe) e menus dinâmicos expansíveis (`ModalBottomSheet`) para a seleção das unidades.
 
 Além disso, o sistema conta com um botão de limpeza rápida de estado e validação rigorosa de entrada, impedindo o processamento de caracteres inválidos e exibindo mensagens de alerta diretamente no escopo visual do campo afetado.
 
 ### Fatores de Conversão Utilizados:
-A arquitetura da interface separa as grandezas em abas ("Área" e "Massa") para evitar cruzamento de dados incompatíveis. Os fatores matemáticos aplicados no código são:
-- **Área:** 1 Alqueire Goiano = 4,84 Hectares
-- **Massa:** 1 Saca = 4 Arrobas
+A arquitetura da interface separa as grandezas em abas ("Área" e "Massa") para evitar cruzamento de dados incompatíveis. Para facilitar o gerenciamento sistêmico, os fatores matemáticos aplicados no código são centralizados a partir de uma unidade-base:
+
+**Área (Base: Hectare):**
+- 1 Alqueire Goiano = 4,84 Hectares
+- 1 Acre ≈ 0,4047 Hectares
+- 10.000 Metros quadrados = 1 Hectare
+
+**Massa (Base: Quilograma):**
+- 1 Saca = 60 Quilogramas
+- 1 Arroba = 15 Quilogramas (logo, 1 Saca = 4 Arrobas)
+- 1 Tonelada = 1000 Quilogramas
 
 ---
 
