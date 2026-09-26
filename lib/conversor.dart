@@ -12,10 +12,10 @@
 //   permitindo ao usuário deslizar (swipe) a tela para mudar de aba.
 // - Visores: Dois campos textuais numéricos (`TextField Outlined`) dispostos verticalmente.
 // - Seleção de Unidades: O usuário poderá escolher a unidade clicando sobre
-//   o rótulo, o que abrirá um `ModalBottomSheet` (menu deslizante inferior) com
-//   a lista de opções.
+//   o rótulo do próprio campo, o que abrirá um `PopupMenuButton` suspenso com
+//   a lista de opções, idêntico à calculadora da Samsung.
 //
-// Comportamento e Estado (Construção/Lógica):f
+// Comportamento e Estado (Construção/Lógica):
 // - Reatividade (`setState` e `onChanged`) para atualizar o outro campo instantaneamente.
 // - Validação de entradas inválidas.
 // - Botão "Limpar" para limpar a conversão ativa.
@@ -49,58 +49,228 @@ class _TelaConversorState extends State<TelaConversor> {
   final TextEditingController _topController = TextEditingController();
   final TextEditingController _bottomController = TextEditingController();
 
+  // Controlador para o swipe (gesto de arrastar)
+  late PageController _pageController;
+
+  // Estados puramente visuais das unidades selecionadas (sem lógica matemática)
+  String _unidadeTopArea = 'Hectares';
+  String _unidadeBottomArea = 'Alqueires Goianos';
+  String _unidadeTopMassa = 'Sacas';
+  String _unidadeBottomMassa = 'Arrobas';
+
+  // Opções para o BottomSheet
+  final List<String> _opcoesArea = [
+    'Hectares',
+    'Alqueires Goianos',
+    'Acres',
+    'Metros Quadrados',
+  ];
+  final List<String> _opcoesMassa = [
+    'Sacas',
+    'Arrobas',
+    'Quilogramas',
+    'Toneladas',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _abaSelecionada);
+  }
+
   @override
   void dispose() {
-    // Desaloca os recursos em memória vinculados aos controladores
-    // durante a destruição do ciclo de vida do widget.
+    _pageController.dispose();
     _topController.dispose();
     _bottomController.dispose();
     super.dispose();
   }
 
-  // Método construtor de widget auxiliar para renderização dos visores de conversão.
-  // Encapsula a lógica de estilização do [TextField] para maximizar o reuso de código.
+  String _obterSigla(String unidade) {
+    switch (unidade) {
+      case 'Hectares': return 'ha';
+      case 'Alqueires Goianos': return 'alq go';
+      case 'Acres': return 'ac';
+      case 'Metros Quadrados': return 'm²';
+      case 'Sacas': return 'scs';
+      case 'Arrobas': return '@';
+      case 'Quilogramas': return 'kg';
+      case 'Toneladas': return 't';
+      default: return '';
+    }
+  }
+
+  // Constrói o agrupamento visual principal de conversão (Label interativo + Campo Numérico).
+  // O construtor (Matheus) deverá acoplar o evento 'onChanged' no TextField interno deste widget.
   Widget _buildVisor({
     required TextEditingController controller,
-    required String labelText,
-    required String suffixText,
+    required String selectedUnit,
+    required List<String> availableUnits,
+    required ValueChanged<String> onUnitChanged,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-      child: TextField(
-        controller: controller,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textAlign: TextAlign.right,
-        style: const TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF1E5631),
+    final symbol = _obterSigla(selectedUnit);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 10.0),
+          child: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1E5631),
+            ),
+            decoration: InputDecoration(
+              floatingLabelBehavior: FloatingLabelBehavior.never,
+              // Fixa a sigla no canto direito para garantir visibilidade contínua.
+              suffixIcon: Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      symbol,
+                      style: const TextStyle(fontSize: 20, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
+            ),
+          ),
         ),
-        decoration: InputDecoration(
-          labelText: labelText,
-          labelStyle: const TextStyle(
-            color: Color(0xFF1E5631),
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+        // Posiciona o botão exatamente sobre a borda superior do TextField
+        Positioned(
+          left: 12.0, // Alinha horizontalmente com o conteúdo interno
+          top: 0.0, // Centraliza perfeitamente em cima da linha do TextField usando top=0
+          child: Container(
+            // Cor de fundo idêntica à tela para "apagar" a linha da borda perfeitamente
+            color: Theme.of(context).scaffoldBackgroundColor,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 4.0,
+              ), // Margem de respiro para o texto
+              child: PopupMenuButton<String>(
+                padding: EdgeInsets.zero, // Zera o padding padrão do componente
+                initialValue: selectedUnit,
+                onSelected: onUnitChanged,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                offset: const Offset(0, 24),
+                itemBuilder: (context) {
+                  return availableUnits.map((unit) {
+                    final isSelected = unit == selectedUnit;
+                    return PopupMenuItem<String>(
+                      value: unit,
+                      child: Text(
+                        unit,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? const Color(0xFF1E5631)
+                              : Colors.black87,
+                        ),
+                      ),
+                    );
+                  }).toList();
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      selectedUnit,
+                      style: const TextStyle(
+                        color: Color(0xFF1E5631),
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 2.0),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Color(0xFF1E5631),
+                      size: 16.0,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          floatingLabelBehavior: FloatingLabelBehavior.always,
-          suffixText: suffixText,
-          suffixStyle: const TextStyle(fontSize: 20, color: Colors.grey),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey.shade400, width: 1.0),
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: Color(0xFF1E5631), width: 2.0),
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-            vertical: 12.0,
+      ],
+    );
+  }
+
+  // Monta a estrutura em lista para cada página do PageView, contendo os dois visores
+  // (superior e inferior) correspondentes à grandeza selecionada (Área ou Massa).
+  Widget _buildAbaConteudo({required bool isArea}) {
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        _buildVisor(
+          controller: _topController,
+          selectedUnit: isArea ? _unidadeTopArea : _unidadeTopMassa,
+          availableUnits: isArea ? _opcoesArea : _opcoesMassa,
+          onUnitChanged: (novaUnidade) {
+            setState(() {
+              if (isArea) {
+                _unidadeTopArea = novaUnidade;
+              } else {
+                _unidadeTopMassa = novaUnidade;
+              }
+            });
+          },
+        ),
+
+        const SizedBox(height: 16.0),
+
+        _buildVisor(
+          controller: _bottomController,
+          selectedUnit: isArea ? _unidadeBottomArea : _unidadeBottomMassa,
+          availableUnits: isArea ? _opcoesArea : _opcoesMassa,
+          onUnitChanged: (novaUnidade) {
+            setState(() {
+              if (isArea) {
+                _unidadeBottomArea = novaUnidade;
+              } else {
+                _unidadeBottomMassa = novaUnidade;
+              }
+            });
+          },
+        ),
+
+        const SizedBox(height: 24.0),
+
+        OutlinedButton(
+          onPressed: () {
+            _topController.clear();
+            _bottomController.clear();
+          },
+          child: const Text('Limpar'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF1E5631),
+            side: const BorderSide(color: Color(0xFF1E5631), width: 1.0),
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            textStyle: const TextStyle(fontSize: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -115,7 +285,8 @@ class _TelaConversorState extends State<TelaConversor> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Seletor de Abas
+          // 1. Barra Superior de Abas (Navegação Visual)
+          // Linha com botões customizados de alto contraste para toque rápido.
           Container(
             padding: const EdgeInsets.only(top: 8.0, bottom: 0.0),
             alignment: Alignment.center,
@@ -125,14 +296,12 @@ class _TelaConversorState extends State<TelaConversor> {
                 final isSelected = _abaSelecionada == index;
                 return GestureDetector(
                   onTap: () {
-                    // Previne reconstruções desnecessárias da árvore de widgets
                     if (_abaSelecionada != index) {
-                      setState(() {
-                        // Atualiza o índice do seletor e invalida o estado atual dos visores
-                        _abaSelecionada = index;
-                        _topController.clear();
-                        _bottomController.clear();
-                      });
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
                     }
                   },
                   child: Container(
@@ -173,60 +342,21 @@ class _TelaConversorState extends State<TelaConversor> {
 
           const Divider(),
 
-          // Visores do conversor
+          // 2. Área Central de Conversão (Navegação por Swipe)
+          // Permite que o usuário arraste a tela lateralmente para trocar a página ativa.
           Expanded(
-            // Utiliza [ListView] para prover comportamento de scroll dinâmico,
-            // prevenindo overflows de layout durante a exibição do teclado virtual.
-            child: ListView(
-              padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _abaSelecionada = index;
+                  _topController.clear();
+                  _bottomController.clear();
+                });
+              },
               children: [
-                _buildVisor(
-                  controller: _topController,
-                  labelText: _abaSelecionada == 0 ? 'Hectares' : 'Sacas',
-                  suffixText: _abaSelecionada == 0 ? 'ha' : 'scs',
-                ),
-
-                const SizedBox(height: 4.0),
-
-                _buildVisor(
-                  controller: _bottomController,
-                  labelText: _abaSelecionada == 0
-                      ? 'Alqueires Goianos'
-                      : 'Arrobas',
-                  suffixText: _abaSelecionada == 0 ? 'alq go' : '@',
-                ),
-
-                const SizedBox(height: 24.0),
-
-                // Botão Limpar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      // Invalida o buffer dos controladores de texto, redefinindo
-                      // a interface para o seu estado inicial vazio.
-                      _topController.clear();
-                      _bottomController.clear();
-                    },
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Limpar'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF1E5631),
-                      side: const BorderSide(
-                        color: Color(0xFF1E5631),
-                        width: 1.5,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      textStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16.0),
-                      ),
-                    ),
-                  ),
-                ),
+                _buildAbaConteudo(isArea: true),
+                _buildAbaConteudo(isArea: false),
               ],
             ),
           ),
