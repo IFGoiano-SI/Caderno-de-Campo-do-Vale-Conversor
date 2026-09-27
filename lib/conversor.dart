@@ -31,6 +31,7 @@
 // =====================================================================
 
 import 'package:flutter/material.dart';
+import 'unidade_conversor.dart';
 
 class TelaConversor extends StatefulWidget {
   const TelaConversor({super.key});
@@ -52,13 +53,18 @@ class _TelaConversorState extends State<TelaConversor> {
   // Controlador para o swipe (gesto de arrastar)
   late PageController _pageController;
 
+  // Flag que previne loop infinito entre os dois onChanged:
+  // quando um campo atualiza o outro programaticamente, o segundo
+  // onChanged não deve disparar uma nova conversão.
+  bool _atualizando = false;
+
   // Estados puramente visuais das unidades selecionadas (sem lógica matemática)
   String _unidadeTopArea = 'Hectares';
   String _unidadeBottomArea = 'Alqueires Goianos';
   String _unidadeTopMassa = 'Sacas';
   String _unidadeBottomMassa = 'Arrobas';
 
-  // Opções para o BottomSheet
+  // Opções para o PopupMenuButton
   final List<String> _opcoesArea = [
     'Hectares',
     'Alqueires Goianos',
@@ -86,6 +92,82 @@ class _TelaConversorState extends State<TelaConversor> {
     super.dispose();
   }
 
+  // ---------------------------------------------------------------------------
+  // Lógica de conversão reativa (equivalente ao oninput do HTML)
+  // ---------------------------------------------------------------------------
+
+  /// Formata o resultado para exibição: remove zeros desnecessários à direita.
+  String _formatar(double valor) {
+    // Exibe até 6 casas decimais, mas remove zeros desnecessários.
+    final s = valor.toStringAsFixed(6);
+    // Remove zeros à direita e ponto decimal isolado.
+    return s.contains('.')
+        ? s.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '')
+        : s;
+  }
+
+  /// Chamado quando o usuário digita no campo SUPERIOR.
+  /// Lê a unidade de origem (_top) e de destino (_bottom) e preenche o campo inferior.
+  void _calcularDeTop({required bool isArea}) {
+    if (_atualizando) return;
+    final texto = _topController.text.trim();
+    if (texto.isEmpty) {
+      _atualizando = true;
+      _bottomController.clear();
+      _atualizando = false;
+      return;
+    }
+    final valor = double.tryParse(texto.replaceAll(',', '.'));
+    if (valor == null) return;
+
+    final resultado = isArea
+        ? ConversorArea.converter(
+            valor: valor,
+            de: ConversorArea.deNome(_unidadeTopArea),
+            para: ConversorArea.deNome(_unidadeBottomArea),
+          )
+        : ConversorMassa.converter(
+            valor: valor,
+            de: ConversorMassa.deNome(_unidadeTopMassa),
+            para: ConversorMassa.deNome(_unidadeBottomMassa),
+          );
+
+    _atualizando = true;
+    _bottomController.text = _formatar(resultado);
+    _atualizando = false;
+  }
+
+  /// Chamado quando o usuário digita no campo INFERIOR.
+  /// Lê a unidade de origem (_bottom) e de destino (_top) e preenche o campo superior.
+  void _calcularDeBottom({required bool isArea}) {
+    if (_atualizando) return;
+    final texto = _bottomController.text.trim();
+    if (texto.isEmpty) {
+      _atualizando = true;
+      _topController.clear();
+      _atualizando = false;
+      return;
+    }
+    final valor = double.tryParse(texto.replaceAll(',', '.'));
+    if (valor == null) return;
+
+    final resultado = isArea
+        ? ConversorArea.converter(
+            valor: valor,
+            de: ConversorArea.deNome(_unidadeBottomArea),
+            para: ConversorArea.deNome(_unidadeTopArea),
+          )
+        : ConversorMassa.converter(
+            valor: valor,
+            de: ConversorMassa.deNome(_unidadeBottomMassa),
+            para: ConversorMassa.deNome(_unidadeTopMassa),
+          );
+
+    _atualizando = true;
+    _topController.text = _formatar(resultado);
+    _atualizando = false;
+  }
+
   String _obterSigla(String unidade) {
     switch (unidade) {
       case 'Hectares': return 'ha';
@@ -101,12 +183,13 @@ class _TelaConversorState extends State<TelaConversor> {
   }
 
   // Constrói o agrupamento visual principal de conversão (Label interativo + Campo Numérico).
-  // O construtor (Matheus) deverá acoplar o evento 'onChanged' no TextField interno deste widget.
+  // [onChanged] dispara a cada tecla digitada, equivalente ao oninput do HTML.
   Widget _buildVisor({
     required TextEditingController controller,
     required String selectedUnit,
     required List<String> availableUnits,
     required ValueChanged<String> onUnitChanged,
+    required ValueChanged<String> onChanged,
   }) {
     final symbol = _obterSigla(selectedUnit);
 
@@ -118,6 +201,7 @@ class _TelaConversorState extends State<TelaConversor> {
           child: TextField(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: onChanged,
             textAlign: TextAlign.right,
             style: const TextStyle(
               fontSize: 28,
@@ -224,6 +308,8 @@ class _TelaConversorState extends State<TelaConversor> {
           controller: _topController,
           selectedUnit: isArea ? _unidadeTopArea : _unidadeTopMassa,
           availableUnits: isArea ? _opcoesArea : _opcoesMassa,
+          // Disparado a cada tecla: recalcula o campo INFERIOR.
+          onChanged: (_) => _calcularDeTop(isArea: isArea),
           onUnitChanged: (novaUnidade) {
             setState(() {
               if (isArea) {
@@ -232,6 +318,8 @@ class _TelaConversorState extends State<TelaConversor> {
                 _unidadeTopMassa = novaUnidade;
               }
             });
+            // Reconverte usando o valor já digitado no campo superior.
+            _calcularDeTop(isArea: isArea);
           },
         ),
 
@@ -241,6 +329,8 @@ class _TelaConversorState extends State<TelaConversor> {
           controller: _bottomController,
           selectedUnit: isArea ? _unidadeBottomArea : _unidadeBottomMassa,
           availableUnits: isArea ? _opcoesArea : _opcoesMassa,
+          // Disparado a cada tecla: recalcula o campo SUPERIOR.
+          onChanged: (_) => _calcularDeBottom(isArea: isArea),
           onUnitChanged: (novaUnidade) {
             setState(() {
               if (isArea) {
@@ -249,6 +339,8 @@ class _TelaConversorState extends State<TelaConversor> {
                 _unidadeBottomMassa = novaUnidade;
               }
             });
+            // Reconverte usando o valor já digitado no campo inferior.
+            _calcularDeBottom(isArea: isArea);
           },
         ),
 
@@ -259,7 +351,6 @@ class _TelaConversorState extends State<TelaConversor> {
             _topController.clear();
             _bottomController.clear();
           },
-          child: const Text('Limpar'),
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF1E5631),
             side: const BorderSide(color: Color(0xFF1E5631), width: 1.0),
@@ -269,6 +360,7 @@ class _TelaConversorState extends State<TelaConversor> {
               borderRadius: BorderRadius.circular(12.0),
             ),
           ),
+          child: const Text('Limpar'),
         ),
       ],
     );
