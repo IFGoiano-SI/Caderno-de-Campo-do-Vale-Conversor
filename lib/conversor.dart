@@ -58,6 +58,11 @@ class _TelaConversorState extends State<TelaConversor> {
   // onChanged não deve disparar uma nova conversão.
   bool _atualizando = false;
 
+  // Rastreia qual campo o usuário editou manualmente por último.
+  // Ao trocar de unidade (em QUALQUER campo), o recálculo sempre parte
+  // deste campo como fonte de verdade, preservando o valor digitado.
+  bool _topFoiEditadoManualmente = true;
+
   // Estados puramente visuais das unidades selecionadas (sem lógica matemática)
   String _unidadeTopArea = 'Hectares';
   String _unidadeBottomArea = 'Alqueires Goianos';
@@ -308,8 +313,11 @@ class _TelaConversorState extends State<TelaConversor> {
           controller: _topController,
           selectedUnit: isArea ? _unidadeTopArea : _unidadeTopMassa,
           availableUnits: isArea ? _opcoesArea : _opcoesMassa,
-          // Disparado a cada tecla: recalcula o campo INFERIOR.
-          onChanged: (_) => _calcularDeTop(isArea: isArea),
+          // Disparado a cada tecla: marca top como fonte de verdade e recalcula.
+          onChanged: (_) {
+            _topFoiEditadoManualmente = true;
+            _calcularDeTop(isArea: isArea);
+          },
           onUnitChanged: (novaUnidade) {
             setState(() {
               if (isArea) {
@@ -318,8 +326,12 @@ class _TelaConversorState extends State<TelaConversor> {
                 _unidadeTopMassa = novaUnidade;
               }
             });
-            // Reconverte usando o valor já digitado no campo superior.
-            _calcularDeTop(isArea: isArea);
+            // Usa sempre a fonte de verdade (último campo digitado pelo usuário).
+            if (_topFoiEditadoManualmente) {
+              _calcularDeTop(isArea: isArea);
+            } else {
+              _calcularDeBottom(isArea: isArea);
+            }
           },
         ),
 
@@ -329,8 +341,11 @@ class _TelaConversorState extends State<TelaConversor> {
           controller: _bottomController,
           selectedUnit: isArea ? _unidadeBottomArea : _unidadeBottomMassa,
           availableUnits: isArea ? _opcoesArea : _opcoesMassa,
-          // Disparado a cada tecla: recalcula o campo SUPERIOR.
-          onChanged: (_) => _calcularDeBottom(isArea: isArea),
+          // Disparado a cada tecla: marca bottom como fonte de verdade e recalcula.
+          onChanged: (_) {
+            _topFoiEditadoManualmente = false;
+            _calcularDeBottom(isArea: isArea);
+          },
           onUnitChanged: (novaUnidade) {
             setState(() {
               if (isArea) {
@@ -339,8 +354,12 @@ class _TelaConversorState extends State<TelaConversor> {
                 _unidadeBottomMassa = novaUnidade;
               }
             });
-            // Reconverte usando o valor já digitado no campo inferior.
-            _calcularDeBottom(isArea: isArea);
+            // Usa sempre a fonte de verdade (último campo digitado pelo usuário).
+            if (_topFoiEditadoManualmente) {
+              _calcularDeTop(isArea: isArea);
+            } else {
+              _calcularDeBottom(isArea: isArea);
+            }
           },
         ),
 
