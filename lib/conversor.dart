@@ -101,14 +101,45 @@ class _TelaConversorState extends State<TelaConversor> {
   // Lógica de conversão reativa (equivalente ao oninput do HTML)
   // ---------------------------------------------------------------------------
 
-  /// Formata o resultado para exibição: remove zeros desnecessários à direita.
+  /// Formata um [double] no padrão pt-BR:
+  /// - Vírgula como separador decimal.
+  /// - Ponto como separador de milhar.
+  /// - Até 6 casas decimais, sem zeros à direita.
+  ///
+  /// Exemplos:
+  ///   1234567.89  →  "1.234.567,89"
+  ///   0.5         →  "0,5"
+  ///   60.0        →  "60"
   String _formatar(double valor) {
-    // Exibe até 6 casas decimais, mas remove zeros desnecessários.
+    // Gera até 6 casas decimais e remove zeros à direita.
     final s = valor.toStringAsFixed(6);
-    // Remove zeros à direita e ponto decimal isolado.
-    return s.contains('.')
-        ? s.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '')
-        : s;
+    final partes = s.split('.');
+    final parteDec = partes[1].replaceAll(RegExp(r'0+$'), '');
+
+    // Adiciona ponto como separador de milhar na parte inteira.
+    final parteInt = partes[0].replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+
+    return parteDec.isEmpty ? parteInt : '$parteInt,$parteDec';
+  }
+
+  /// Normaliza a entrada digitada pelo usuário para que possa ser
+  /// convertida com [double.tryParse].
+  ///
+  /// Aceita tanto ponto quanto vírgula como separador decimal.
+  /// Remove separadores de milhar (pontos quando há vírgula decimal).
+  double? _parsePtBr(String texto) {
+    var s = texto.trim();
+    if (s.isEmpty) return null;
+
+    if (s.contains(',')) {
+      // Formato pt-BR: pontos são separadores de milhar, vírgula é o decimal.
+      s = s.replaceAll('.', '').replaceAll(',', '.');
+    }
+    // Se não há vírgula, assume ponto como decimal (padrão dart).
+    return double.tryParse(s);
   }
 
   /// Chamado quando o usuário digita no campo SUPERIOR.
@@ -122,7 +153,7 @@ class _TelaConversorState extends State<TelaConversor> {
       _atualizando = false;
       return;
     }
-    final valor = double.tryParse(texto.replaceAll(',', '.'));
+    final valor = _parsePtBr(texto);
     if (valor == null) return;
 
     final resultado = isArea
@@ -153,7 +184,7 @@ class _TelaConversorState extends State<TelaConversor> {
       _atualizando = false;
       return;
     }
-    final valor = double.tryParse(texto.replaceAll(',', '.'));
+    final valor = _parsePtBr(texto);
     if (valor == null) return;
 
     final resultado = isArea
