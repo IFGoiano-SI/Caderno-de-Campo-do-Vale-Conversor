@@ -39,7 +39,7 @@ Para executar o projeto em sua máquina local, certifique-se de ter o ambiente F
    flutter pub get
    ```
 3. Conecte um dispositivo físico ou inicie um emulador Android/iOS.
-4. Execute os testes automatizados da lógica de conversão e interface utilizando:
+4. Execute os testes automatizados (conversões de unidade e abertura do app) utilizando:
    ```bash
    flutter test
    ```
@@ -75,5 +75,5 @@ O trabalho foi desenvolvido em equipe, com divisão de papéis e responsabilidad
 
 2. **Contraste e hierarquia visual.**
    O valor é exibido em 28 pt, em verde escuro (#1E5631, contraste 8,6:1). A sigla da
-   unidade usa cinza escuro (#616161, 6,2:1) para ser legível sob sol forte. O erro
+   unidade usa cinza escuro (#616161, 6,2:1) para ser legível sob sol forte. A aba selecionada é preenchida em verde escuro com texto branco (8,6:1), e não apenas em verde claro, para que a aba ativa seja identificada de longe. O erro
    aparece como texto na cor vermelha, dentro do campo, e não apenas como mudança de cor.

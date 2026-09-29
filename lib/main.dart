@@ -74,13 +74,13 @@ class TelaResumo extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const[
                   Text(
-                    'Fazenda Talismã',
+                    'Fazenda Pito Aceso',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   // SizedBox: um espaço vazio de tamanho fixo. Aqui, respiro vertical.
                   SizedBox(height: 4),
                   Text(
-                    'Goiania — GO',
+                    'Uruana — GO',
                     style: TextStyle(fontSize: 16, color: Colors.black54),
                   ),
                 ],

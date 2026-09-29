@@ -99,7 +99,7 @@ class _TelaConversorState extends State<TelaConversor> {
   }
 
   // ---------------------------------------------------------------------------
-  // Lógica de conversão reativa (equivalente ao oninput do HTML)
+  // Lógica de conversão reativa (recalcula a cada tecla digitada).
   // ---------------------------------------------------------------------------
 
   /// Formata um [double] no padrão pt-BR para os campos:
@@ -224,7 +224,7 @@ class _TelaConversorState extends State<TelaConversor> {
   }
 
   // Constrói o agrupamento visual principal de conversão (Label interativo + Campo Numérico).
-  // [onChanged] dispara a cada tecla digitada, equivalente ao oninput do HTML.
+  // [onChanged] dispara a cada tecla digitada e recalcula o outro campo.
   Widget _buildVisor({
     required TextEditingController controller,
     required String selectedUnit,
@@ -359,7 +359,7 @@ class _TelaConversorState extends State<TelaConversor> {
                           selectedUnit,
                           style: const TextStyle(
                             color: Color(0xFF1E5631),
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -501,6 +501,7 @@ class _TelaConversorState extends State<TelaConversor> {
                     }
                   },
                   child: Container(
+                    constraints: const BoxConstraints(minHeight: 48.0),
                     margin: const EdgeInsets.symmetric(horizontal: 16.0),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24.0,
@@ -508,25 +509,19 @@ class _TelaConversorState extends State<TelaConversor> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFFD5F5E3)
+                          ? const Color(0xFF1E5631)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(20.0),
-                      border: isSelected
-                          ? Border.all(
-                              color: const Color(0xFFD5F5E3),
-                              width: 1.0,
-                            )
-                          : Border.all(color: Colors.transparent, width: 1.0),
                     ),
                     child: Text(
                       _abas[index],
                       style: TextStyle(
                         fontSize: 16.0,
                         fontWeight: isSelected
-                            ? FontWeight.w600
+                            ? FontWeight.w700
                             : FontWeight.w500,
                         color: isSelected
-                            ? const Color(0xFF1E5631)
+                            ? Colors.white
                             : Colors.grey.shade700,
                       ),
                     ),
