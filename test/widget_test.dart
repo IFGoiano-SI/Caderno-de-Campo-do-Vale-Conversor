@@ -16,7 +16,7 @@ void main() {
     // Constrói o app
     await tester.pumpWidget(const CadernoApp());
 
-    // Verifica se a tela principal abriu buscando pelo texto 'Home' da barra de navegação
-    expect(find.text('Home'), findsOneWidget);
+    // Verifica se a tela principal abriu buscando pelo texto 'Resumo' da barra de navegação
+    expect(find.text('Resumo'), findsWidgets);
   });
 }

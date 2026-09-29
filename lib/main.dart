@@ -1,16 +1,5 @@
-// Caderno de Campo do Vale — PROJETO INICIAL
+// Caderno de Campo do Vale
 // Programação para Dispositivos Móveis · IF Goiano — Campus Ceres
-//
-// Este é o ponto de partida da aula de widgets de layout. O app já roda,
-// mas a tela está praticamente vazia de propósito: você vai construí-la
-// ao longo dos quatro ciclos, com o hot reload mostrando cada mudança.
-//
-// COMO RODAR (uma vez, no terminal, dentro desta pasta):
-//   flutter create .        # gera as pastas nativas (android/, ios/...)
-//   flutter pub get         # baixa as dependências
-//   flutter run             # roda no dispositivo/emulador selecionado
-//
-// Depois, deixe o app rodando: salvar o arquivo aplica o hot reload.
 
 import 'package:flutter/material.dart';
 import 'tela_principal.dart';
@@ -103,11 +92,6 @@ class TelaResumo extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // ===================================================== BUG 1
-            // Esta Row tenta colocar dois cards largos lado a lado, mas
-            // eles somados passam da largura da tela -> overflow amarelo.
-            // CONSERTE: envolva CADA card em um Expanded, para que dividam
-            // o espaço disponível em vez de exigir a largura cheia.
             Row(
               children: [
                 Expanded(
@@ -123,16 +107,8 @@ class TelaResumo extends StatelessWidget {
                 ),
               ],
             ),
-
-            // Enquanto o Expanded divide o espaço disponível igualmente entre os cards, o Flexible permite que defina uma proporção de espaço para cada card usando o parâmetro flex. No exemplo acima, o primeiro card ocupa 2/3 do espaço disponível, enquanto o segundo ocupa 1/3.
-
             const SizedBox(height: 16),
 
-            // ===================================================== BUG 2
-            // Este texto é muito longo e, dentro de uma Row, tenta ocupar
-            // uma largura infinita -> overflow.
-            // CONSERTE: envolva o Text em um Expanded para que ele quebre
-            // a linha dentro do espaço que sobra.
             Row(
               children: const [
                 Icon(Icons.info_outline, color: Color(0xFF1E5631)),

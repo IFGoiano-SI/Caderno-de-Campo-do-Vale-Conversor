@@ -31,6 +31,8 @@
 // =====================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import 'unidade_conversor.dart';
 
 class TelaConversor extends StatefulWidget {
@@ -53,17 +55,16 @@ class _TelaConversorState extends State<TelaConversor> {
   // Controlador para o swipe (gesto de arrastar)
   late PageController _pageController;
 
-  // Flag que previne loop infinito entre os dois onChanged:
-  // quando um campo atualiza o outro programaticamente, o segundo
-  // onChanged não deve disparar uma nova conversão.
-  bool _atualizando = false;
+  // Erros de validação
+  String? _erroTop;
+  String? _erroBottom;
 
   // Rastreia qual campo o usuário editou manualmente por último.
   // Ao trocar de unidade (em QUALQUER campo), o recálculo sempre parte
   // deste campo como fonte de verdade, preservando o valor digitado.
   bool _topFoiEditadoManualmente = true;
 
-  // Estados puramente visuais das unidades selecionadas (sem lógica matemática)
+  // Estados das unidades de medida selecionadas (essenciais para a fórmula de conversão)
   String _unidadeTopArea = 'Hectares';
   String _unidadeBottomArea = 'Alqueires Goianos';
   String _unidadeTopMassa = 'Sacas';
@@ -101,120 +102,124 @@ class _TelaConversorState extends State<TelaConversor> {
   // Lógica de conversão reativa (equivalente ao oninput do HTML)
   // ---------------------------------------------------------------------------
 
-  /// Formata um [double] no padrão pt-BR:
+  /// Formata um [double] no padrão pt-BR para os campos:
   /// - Vírgula como separador decimal.
-  /// - Ponto como separador de milhar.
+  /// - Sem separador de milhar (facilita editar o texto).
   /// - Até 6 casas decimais, sem zeros à direita.
-  ///
-  /// Exemplos:
-  ///   1234567.89  →  "1.234.567,89"
-  ///   0.5         →  "0,5"
-  ///   60.0        →  "60"
+  /// Ex.: 1234.5 → "1234,5" | 0.5 → "0,5" | 60.0 → "60"
   String _formatar(double valor) {
-    // Gera até 6 casas decimais e remove zeros à direita.
-    final s = valor.toStringAsFixed(6);
-    final partes = s.split('.');
-    final parteDec = partes[1].replaceAll(RegExp(r'0+$'), '');
-
-    // Adiciona ponto como separador de milhar na parte inteira.
-    final parteInt = partes[0].replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]}.',
-    );
-
-    return parteDec.isEmpty ? parteInt : '$parteInt,$parteDec';
+    final partes = valor.toStringAsFixed(6).split('.');
+    final decimais = partes[1].replaceAll(RegExp(r'0+$'), '');
+    return decimais.isEmpty ? partes[0] : '${partes[0]},$decimais';
   }
 
-  /// Normaliza a entrada digitada pelo usuário para que possa ser
-  /// convertida com [double.tryParse].
-  ///
-  /// Aceita tanto ponto quanto vírgula como separador decimal.
-  /// Remove separadores de milhar (pontos quando há vírgula decimal).
   double? _parsePtBr(String texto) {
-    var s = texto.trim();
-    if (s.isEmpty) return null;
-
-    if (s.contains(',')) {
-      // Formato pt-BR: pontos são separadores de milhar, vírgula é o decimal.
-      s = s.replaceAll('.', '').replaceAll(',', '.');
-    }
-    // Se não há vírgula, assume ponto como decimal (padrão dart).
+    var s = texto.trim().replaceAll(',', '.');
+    if (s.startsWith('.')) s = '0$s';
+    if (s.endsWith('.')) s = '${s}0';
     return double.tryParse(s);
   }
 
-  /// Chamado quando o usuário digita no campo SUPERIOR.
-  /// Lê a unidade de origem (_top) e de destino (_bottom) e preenche o campo inferior.
-  void _calcularDeTop({required bool isArea}) {
-    if (_atualizando) return;
-    final texto = _topController.text.trim();
-    if (texto.isEmpty) {
-      _atualizando = true;
-      _bottomController.clear();
-      _atualizando = false;
-      return;
+  String? _validar(String texto) {
+    final t = texto.trim();
+    if (t.startsWith('-')) return 'Medidas não podem ser negativas.';
+    if (!RegExp(r'^(\d+[.,]?\d*|[.,]\d*)$').hasMatch(t)) {
+      return 'Formato inválido. Use apenas números, ex: 12,5.';
     }
-    final valor = _parsePtBr(texto);
-    if (valor == null) return;
-
-    final resultado = isArea
-        ? ConversorArea.converter(
-            valor: valor,
-            de: ConversorArea.deNome(_unidadeTopArea),
-            para: ConversorArea.deNome(_unidadeBottomArea),
-          )
-        : ConversorMassa.converter(
-            valor: valor,
-            de: ConversorMassa.deNome(_unidadeTopMassa),
-            para: ConversorMassa.deNome(_unidadeBottomMassa),
-          );
-
-    _atualizando = true;
-    _bottomController.text = _formatar(resultado);
-    _atualizando = false;
+    final v = _parsePtBr(t);
+    if (v == null) return 'Valor não reconhecido pelo conversor.';
+    if (v > 1e12) return 'O valor excede o limite máximo suportado.';
+    return null;
   }
 
-  /// Chamado quando o usuário digita no campo INFERIOR.
-  /// Lê a unidade de origem (_bottom) e de destino (_top) e preenche o campo superior.
-  void _calcularDeBottom({required bool isArea}) {
-    if (_atualizando) return;
-    final texto = _bottomController.text.trim();
+  void _calcularDeTop({required bool isArea}) =>
+      _converter(deTop: true, isArea: isArea);
+
+  void _calcularDeBottom({required bool isArea}) =>
+      _converter(deTop: false, isArea: isArea);
+
+  void _converter({required bool deTop, required bool isArea}) {
+    final origem = deTop ? _topController : _bottomController;
+    final destino = deTop ? _bottomController : _topController;
+
+    if (origem.text == ',' || origem.text == '.') {
+      origem.value = const TextEditingValue(
+        text: '0,',
+        selection: TextSelection.collapsed(offset: 2),
+      );
+    }
+
+    final texto = origem.text.trim();
+
+    // Campo vazio: limpa o outro campo e os erros.
     if (texto.isEmpty) {
-      _atualizando = true;
-      _topController.clear();
-      _atualizando = false;
+      setState(() {
+        _erroTop = null;
+        _erroBottom = null;
+        destino.clear();
+      });
       return;
     }
-    final valor = _parsePtBr(texto);
-    if (valor == null) return;
 
+    // Entrada inválida: mostra a mensagem no campo e não deixa resultado antigo.
+    final erro = _validar(texto);
+    if (erro != null) {
+      setState(() {
+        _erroTop = deTop ? erro : null;
+        _erroBottom = deTop ? null : erro;
+        destino.clear();
+      });
+      return;
+    }
+
+    final valor = _parsePtBr(texto)!;
     final resultado = isArea
         ? ConversorArea.converter(
             valor: valor,
-            de: ConversorArea.deNome(_unidadeBottomArea),
-            para: ConversorArea.deNome(_unidadeTopArea),
+            de: ConversorArea.deNome(
+              deTop ? _unidadeTopArea : _unidadeBottomArea,
+            ),
+            para: ConversorArea.deNome(
+              deTop ? _unidadeBottomArea : _unidadeTopArea,
+            ),
           )
         : ConversorMassa.converter(
             valor: valor,
-            de: ConversorMassa.deNome(_unidadeBottomMassa),
-            para: ConversorMassa.deNome(_unidadeTopMassa),
+            de: ConversorMassa.deNome(
+              deTop ? _unidadeTopMassa : _unidadeBottomMassa,
+            ),
+            para: ConversorMassa.deNome(
+              deTop ? _unidadeBottomMassa : _unidadeTopMassa,
+            ),
           );
 
-    _atualizando = true;
-    _topController.text = _formatar(resultado);
-    _atualizando = false;
+    setState(() {
+      _erroTop = null;
+      _erroBottom = null;
+      destino.text = _formatar(resultado);
+    });
   }
 
   String _obterSigla(String unidade) {
     switch (unidade) {
-      case 'Hectares': return 'ha';
-      case 'Alqueires Goianos': return 'alq go';
-      case 'Acres': return 'ac';
-      case 'Metros Quadrados': return 'm²';
-      case 'Sacas': return 'scs';
-      case 'Arrobas': return '@';
-      case 'Quilogramas': return 'kg';
-      case 'Toneladas': return 't';
-      default: return '';
+      case 'Hectares':
+        return 'ha';
+      case 'Alqueires Goianos':
+        return 'alq go';
+      case 'Acres':
+        return 'ac';
+      case 'Metros Quadrados':
+        return 'm²';
+      case 'Sacas':
+        return 'scs';
+      case 'Arrobas':
+        return '@';
+      case 'Quilogramas':
+        return 'kg';
+      case 'Toneladas':
+        return 't';
+      default:
+        return '';
     }
   }
 
@@ -226,6 +231,7 @@ class _TelaConversorState extends State<TelaConversor> {
     required List<String> availableUnits,
     required ValueChanged<String> onUnitChanged,
     required ValueChanged<String> onChanged,
+    String? errorText,
   }) {
     final symbol = _obterSigla(selectedUnit);
 
@@ -233,10 +239,21 @@ class _TelaConversorState extends State<TelaConversor> {
       clipBehavior: Clip.none,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 10.0),
+          padding: const EdgeInsets.only(top: 24.0),
           child: TextField(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                final text = newValue.text;
+                int dotsAndCommas = 0;
+                for (int i = 0; i < text.length; i++) {
+                  if (text[i] == '.' || text[i] == ',') dotsAndCommas++;
+                }
+                if (dotsAndCommas > 1) return oldValue;
+                return newValue;
+              }),
+            ],
             onChanged: onChanged,
             textAlign: TextAlign.right,
             style: const TextStyle(
@@ -255,12 +272,31 @@ class _TelaConversorState extends State<TelaConversor> {
                   children: [
                     Text(
                       symbol,
-                      style: const TextStyle(fontSize: 20, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: Colors.grey.shade700,
+                      ),
                     ),
                   ],
                 ),
               ),
-              suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 0,
+                minHeight: 0,
+              ),
+              errorText: errorText,
+              errorStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.0),
+                borderSide: BorderSide(color: Colors.red.shade800, width: 2),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.0),
+                borderSide: BorderSide(color: Colors.red.shade800, width: 2),
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
@@ -273,63 +309,74 @@ class _TelaConversorState extends State<TelaConversor> {
         ),
         // Posiciona o botão exatamente sobre a borda superior do TextField
         Positioned(
-          left: 12.0, // Alinha horizontalmente com o conteúdo interno
-          top: 0.0, // Centraliza perfeitamente em cima da linha do TextField usando top=0
-          child: Container(
-            // Cor de fundo idêntica à tela para "apagar" a linha da borda perfeitamente
-            color: Theme.of(context).scaffoldBackgroundColor,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 4.0,
-              ), // Margem de respiro para o texto
-              child: PopupMenuButton<String>(
-                padding: EdgeInsets.zero, // Zera o padding padrão do componente
-                initialValue: selectedUnit,
-                onSelected: onUnitChanged,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                offset: const Offset(0, 24),
-                itemBuilder: (context) {
-                  return availableUnits.map((unit) {
-                    final isSelected = unit == selectedUnit;
-                    return PopupMenuItem<String>(
-                      value: unit,
-                      child: Text(
-                        unit,
-                        style: TextStyle(
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: isSelected
-                              ? const Color(0xFF1E5631)
-                              : Colors.black87,
+          left: 8.0,
+          top: 0.0,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+            ),
+            child: PopupMenuButton<String>(
+              tooltip: '',
+              padding: EdgeInsets.zero,
+              initialValue: selectedUnit,
+              onSelected: onUnitChanged,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              offset: const Offset(0, 40),
+              itemBuilder: (context) {
+                return availableUnits.map((unit) {
+                  final isSelected = unit == selectedUnit;
+                  return PopupMenuItem<String>(
+                    value: unit,
+                    child: Text(
+                      unit,
+                      style: TextStyle(
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isSelected
+                            ? const Color(0xFF1E5631)
+                            : Colors.black87,
+                      ),
+                    ),
+                  );
+                }).toList();
+              },
+              child: SizedBox(
+                height: 48.0,
+                child: Center(
+                  widthFactor: 1,
+                  child: Container(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          selectedUnit,
+                          style: const TextStyle(
+                            color: Color(0xFF1E5631),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    );
-                  }).toList();
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      selectedUnit,
-                      style: const TextStyle(
-                        color: Color(0xFF1E5631),
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
+                        const SizedBox(width: 2.0),
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Color(0xFF1E5631),
+                          size: 18.0,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 2.0),
-                    const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Color(0xFF1E5631),
-                      size: 16.0,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -344,6 +391,7 @@ class _TelaConversorState extends State<TelaConversor> {
           controller: _topController,
           selectedUnit: isArea ? _unidadeTopArea : _unidadeTopMassa,
           availableUnits: isArea ? _opcoesArea : _opcoesMassa,
+          errorText: _erroTop,
           // Disparado a cada tecla: marca top como fonte de verdade e recalcula.
           onChanged: (_) {
             _topFoiEditadoManualmente = true;
@@ -366,12 +414,13 @@ class _TelaConversorState extends State<TelaConversor> {
           },
         ),
 
-        const SizedBox(height: 16.0),
+        const SizedBox(height: 4.0),
 
         _buildVisor(
           controller: _bottomController,
           selectedUnit: isArea ? _unidadeBottomArea : _unidadeBottomMassa,
           availableUnits: isArea ? _opcoesArea : _opcoesMassa,
+          errorText: _erroBottom,
           // Disparado a cada tecla: marca bottom como fonte de verdade e recalcula.
           onChanged: (_) {
             _topFoiEditadoManualmente = false;
@@ -398,8 +447,12 @@ class _TelaConversorState extends State<TelaConversor> {
 
         OutlinedButton(
           onPressed: () {
-            _topController.clear();
-            _bottomController.clear();
+            setState(() {
+              _topController.clear();
+              _bottomController.clear();
+              _erroTop = null;
+              _erroBottom = null;
+            });
           },
           style: OutlinedButton.styleFrom(
             foregroundColor: const Color(0xFF1E5631),
@@ -437,6 +490,7 @@ class _TelaConversorState extends State<TelaConversor> {
               children: List.generate(_abas.length, (index) {
                 final isSelected = _abaSelecionada == index;
                 return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     if (_abaSelecionada != index) {
                       _pageController.animateToPage(
@@ -450,7 +504,7 @@ class _TelaConversorState extends State<TelaConversor> {
                     margin: const EdgeInsets.symmetric(horizontal: 16.0),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24.0,
-                      vertical: 8.0,
+                      vertical: 14.0,
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
@@ -473,7 +527,7 @@ class _TelaConversorState extends State<TelaConversor> {
                             : FontWeight.w500,
                         color: isSelected
                             ? const Color(0xFF1E5631)
-                            : Colors.grey.shade600,
+                            : Colors.grey.shade700,
                       ),
                     ),
                   ),
@@ -494,6 +548,8 @@ class _TelaConversorState extends State<TelaConversor> {
                   _abaSelecionada = index;
                   _topController.clear();
                   _bottomController.clear();
+                  _erroTop = null;
+                  _erroBottom = null;
                 });
               },
               children: [

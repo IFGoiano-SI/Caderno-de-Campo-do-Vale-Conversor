@@ -11,7 +11,9 @@ A aplicação permite que o usuário digite um valor numérico, selecione a unid
 
 O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: ambos os campos atuam simultaneamente como origem e destino, atualizando-se mutuamente em tempo real (via `onChanged` e `setState`). Inspirada nas melhores práticas de design (como o aplicativo de conversão da Samsung), a navegação conta com recursos avançados como a transição ágil de abas por gestos (`PageView` com swipe) e menus de contexto dinâmicos (`PopupMenuButton`) para a seleção rápida das unidades.
 
-Além disso, o sistema conta com um botão de limpeza rápida de estado e validação rigorosa de entrada, impedindo o processamento de caracteres inválidos e exibindo mensagens de alerta diretamente no escopo visual do campo afetado.
+Além disso, o sistema conta com um botão de limpeza rápida de estado e uma estratégia dupla de verificação:
+1. **Prevenção:** Bloqueia fisicamente a digitação de múltiplas vírgulas/pontos no teclado numérico.
+2. **Validação:** Rejeita caracteres inválidos (letras, traços) provenientes de "colagem", e impede valores que excedem os limites, exibindo mensagens de alerta vermelhas e precisas diretamente no escopo visual do campo afetado.
 
 ### Fatores de Conversão Utilizados:
 A arquitetura da interface separa as grandezas em abas ("Área" e "Massa") para evitar cruzamento de dados incompatíveis. Os fatores matemáticos aplicados no código são:
@@ -22,6 +24,8 @@ A arquitetura da interface separa as grandezas em abas ("Área" e "Massa") para 
 - **Massa:** 1 Saca = 60 Quilogramas
 - **Massa:** 1 Arroba = 15 Quilogramas
 - **Massa:** 1 Tonelada = 1000 Quilogramas
+
+*Nota: Os campos aceitam vírgula ou ponto como decimal e não utilizam separador de milhar para facilitar a edição em dispositivos móveis.*
 
 ---
 
@@ -35,11 +39,15 @@ Para executar o projeto em sua máquina local, certifique-se de ter o ambiente F
    flutter pub get
    ```
 3. Conecte um dispositivo físico ou inicie um emulador Android/iOS.
-4. Execute a aplicação utilizando o comando:
+4. Execute os testes automatizados da lógica de conversão e interface utilizando:
+   ```bash
+   flutter test
+   ```
+5. Execute a aplicação utilizando o comando:
    ```bash
    flutter run
    ```
-5. Durante a execução, utilize o comando de **Hot Reload** (tecla `r` no terminal ou `Ctrl + S` na IDE) para visualizar as alterações instantaneamente sem precisar recompilar todo o aplicativo.
+6. Durante a execução, utilize o comando de **Hot Reload** (tecla `r` no terminal ou `Ctrl + S` na IDE) para visualizar as alterações instantaneamente sem precisar recompilar todo o aplicativo.
 
 ---
 
@@ -55,3 +63,17 @@ O trabalho foi desenvolvido em equipe, com divisão de papéis e responsabilidad
 
 **Relator:** Elenilton Filho Nunes da Silva  
 **Responsabilidade:** Estruturação da arquitetura base para o início do desenvolvimento (incluindo a configuração inicial da navegação com `NavigationBar` interligando as telas). Elaboração, padronização e organização da documentação do projeto (como este `README.md`), gerenciamento das versões e commits no repositório Git, e condução da demonstração prática ao vivo do software.
+
+---
+
+## 4. Decisões de interface para o uso no campo
+
+1. **Alvos de toque de 48 dp e teclado numérico.**
+   O seletor de unidade e as abas têm área de toque mínima de 48 dp, e o campo abre o
+   teclado numérico com vírgula decimal. No campo o produtor usa o celular com luvas,
+   mãos sujas ou em movimento, e alvos pequenos causam toques errados.
+
+2. **Contraste e hierarquia visual.**
+   O valor é exibido em 28 pt, em verde escuro (#1E5631, contraste 8,6:1). A sigla da
+   unidade usa cinza escuro (#616161, 6,2:1) para ser legível sob sol forte. O erro
+   aparece como texto na cor vermelha, dentro do campo, e não apenas como mudança de cor.
