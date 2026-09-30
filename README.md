@@ -10,10 +10,11 @@ A aplicação permite que o usuário digite um valor numérico, selecione a unid
 - **Massa:** Sacas, Arrobas, Quilogramas e Toneladas.
 
 O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: ambos os campos atuam simultaneamente como origem e destino, atualizando-se mutuamente em tempo real (via `onChanged` e `setState`). Inspirada nas melhores práticas de design (como o aplicativo de conversão da Samsung), a navegação conta com recursos avançados como a transição ágil de abas por gestos (`PageView` com swipe) e menus de contexto dinâmicos (`PopupMenuButton`) para a seleção rápida das unidades.
+O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: qualquer um dos dois campos pode ser a origem, e o outro é recalculado a partir do último campo editado, em tempo real (via `onChanged` e `setState`). Inspirada nas melhores práticas de design (como o aplicativo de conversão da Samsung), a navegação conta com recursos avançados como a transição ágil de abas por gestos (`PageView` com swipe) e menus suspensos (`PopupMenuButton`) para a seleção rápida das unidades.
 
 Além disso, o sistema conta com um botão de limpeza rápida de estado e uma estratégia dupla de verificação:
-1. **Prevenção:** Bloqueia fisicamente a digitação de múltiplas vírgulas/pontos no teclado numérico.
-2. **Validação:** Rejeita caracteres inválidos (letras, traços) provenientes de "colagem", e impede valores que excedem os limites, exibindo mensagens de alerta vermelhas e precisas diretamente no escopo visual do campo afetado.
+1. **Prevenção:** Bloqueia, na própria digitação (`TextInputFormatter`), a entrada de mais de um separador decimal (vírgula ou ponto).
+2. **Validação:** Rejeita caracteres inválidos (letras e sinal negativo), digitados ou colados, e impede valores que excedem os limites, exibindo mensagens de alerta vermelhas e precisas diretamente no escopo visual do campo afetado.
 
 ### Fatores de Conversão Utilizados:
 A arquitetura da interface separa as grandezas em abas ("Área" e "Massa") para evitar cruzamento de dados incompatíveis. Os fatores matemáticos aplicados no código são:
@@ -74,6 +75,6 @@ O trabalho foi desenvolvido em equipe, com divisão de papéis e responsabilidad
    mãos sujas ou em movimento, e alvos pequenos causam toques errados.
 
 2. **Contraste e hierarquia visual.**
-   O valor é exibido em 28 pt, em verde escuro (#1E5631, contraste 8,6:1). A sigla da
+   O valor é exibido em 28 sp, em verde escuro (#1E5631, contraste 8,6:1). A sigla da
    unidade usa cinza escuro (#616161, 6,2:1) para ser legível sob sol forte. A aba selecionada é preenchida em verde escuro com texto branco (8,6:1), e não apenas em verde claro, para que a aba ativa seja identificada de longe. O erro
-   aparece como texto na cor vermelha, dentro do campo, e não apenas como mudança de cor.
+   aparece como texto na cor vermelha, logo abaixo do campo, acompanhado de borda vermelha, e não apenas como mudança de cor.
