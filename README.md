@@ -9,7 +9,6 @@ A aplicação permite que o usuário digite um valor numérico, selecione a unid
 - **Área:** Hectares, Alqueires goianos, Acres e Metros quadrados.
 - **Massa:** Sacas, Arrobas, Quilogramas e Toneladas.
 
-O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: ambos os campos atuam simultaneamente como origem e destino, atualizando-se mutuamente em tempo real (via `onChanged` e `setState`). Inspirada nas melhores práticas de design (como o aplicativo de conversão da Samsung), a navegação conta com recursos avançados como a transição ágil de abas por gestos (`PageView` com swipe) e menus de contexto dinâmicos (`PopupMenuButton`) para a seleção rápida das unidades.
 O resultado da conversão é exibido instantaneamente na tela a cada caractere digitado. Uma das principais inovações técnicas da interface é a **reatividade bidirecional (via de mão dupla)**: qualquer um dos dois campos pode ser a origem, e o outro é recalculado a partir do último campo editado, em tempo real (via `onChanged` e `setState`). Inspirada nas melhores práticas de design (como o aplicativo de conversão da Samsung), a navegação conta com recursos avançados como a transição ágil de abas por gestos (`PageView` com swipe) e menus suspensos (`PopupMenuButton`) para a seleção rápida das unidades.
 
 Além disso, o sistema conta com um botão de limpeza rápida de estado e uma estratégia dupla de verificação:
